@@ -71,8 +71,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .linkbtn { color: var(--muted); text-decoration: underline; padding: 4px 0; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; }
 .row > .btn { flex: 1 1 180px; }
-.nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-@media (max-width: 520px) { .nav { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .nav .btn { flex-direction: column; gap: 4px; min-height: 72px; padding: 8px; font-size: 0.92rem; }
 .nav svg { width: 22px; height: 22px; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -511,7 +510,7 @@ details.ci .a ul, .gen-card ul { margin: 4px 0; padding-left: 1.2em; }
     me = { ...prof, email: s.user.email };
     if (!me.approved) { view = { name: 'pending' }; return render(); }
     devMode = me.role === 'developer' && store.get('devMode', true) !== false;
-    if (!['home','library','block','archive','submit','dev','goals'].includes(view.name)) view = { name: 'home' };
+    if (!['home','library','block','archive','dev','goals'].includes(view.name)) view = { name: 'home' };
     render();
     await refresh(true); render();
   }
@@ -575,7 +574,7 @@ details.ci .a ul, .gen-card ul { margin: 4px 0; padding-left: 1.2em; }
   function go(v) { view = v; render(); scrollTo(0, 0); }
   function render() {
     const r = { auth: renderAuth, pending: renderPending, home: renderHome, block: renderBlock, study: renderStudy, done: renderDone,
-      archive: renderArchive, library: renderLibrary, submit: renderSubmit, dev: renderDev, goals: renderGoals }[view.name];
+      archive: renderArchive, library: renderLibrary, dev: renderDev, goals: renderGoals }[view.name];
     (r || renderHome)();
     const bk = $('back'); if (bk) bk.onclick = () => go(view.backTo || { name: 'home' });
   }
@@ -588,10 +587,10 @@ details.ci .a ul, .gen-card ul { margin: 4px 0; padding-left: 1.2em; }
     let html = `<div class="top"><div><h2>ICU Flashcards${me.name ? ' · ' + esc(me.name) : ''}</h2><h1>Os teus blocos</h1></div>
       ${mine.length ? `<div class="today"><div><b>${totDue}</b><span>para rever</span></div><div><b>${totNew}</b><span>novos hoje</span></div><div><b>${totAll}</b><span>cartões</span></div></div>` : ''}</div>`;
     if (devMode) {
-      const np = allSubs.filter(s => s.status === 'pending').length, na = profiles.filter(p => !p.approved).length;
+      const na = profiles.filter(p => !p.approved).length;
       html += `<div class="dev-band"><div class="group-head"><h2>Modo developer</h2><button class="btn btn-ghost btn-sm" id="asUser">Ver como utilizador</button></div>
-        <div class="row"><button class="btn btn-primary" id="openDev">Painel developer${np + na ? ` (${np + na} pendente${np + na > 1 ? 's' : ''})` : ''}</button></div>
-        <p class="small muted">${plural(np, 'submissão por validar', 'submissões por validar')} · ${plural(na, 'conta por aprovar', 'contas por aprovar')}</p></div>`;
+        <div class="row"><button class="btn btn-primary" id="openDev">Painel developer${na ? ` (${plural(na, 'conta por aprovar', 'contas por aprovar')})` : ''}</button></div>
+        </div>`;
     } else if (me.role === 'developer') html += `<button class="btn btn-ghost btn-sm" id="asDev" style="align-self:flex-start">Voltar ao modo developer</button>`;
     if (hasGoals()) {
       const c = periodCounts(), rows = PERIODS.filter(p => goals[p.k]).map(p => goalRow(p.label, c[p.k], goals[p.k])).join('');
@@ -601,7 +600,6 @@ details.ci .a ul, .gen-card ul { margin: 4px 0; padding-left: 1.2em; }
     }
     html += `<div class="nav"><button class="btn btn-ghost" id="openLib">${ICON.library}Biblioteca</button>
       <button class="btn btn-ghost" id="openGoals">${ICON.goal}Objetivos</button>
-      <button class="btn btn-ghost" id="openSubmit">${ICON.pdf}Enviar PDF</button>
       <button class="btn btn-ghost" id="openArchive">${ICON.archive}Arquivo</button></div>`;
     if (!loadedData) html += `<div class="empty"><h3>A carregar…</h3></div>`;
     else if (!mine.length) html += `<div class="empty"><h3>Ainda não importaste nenhum bloco</h3>
@@ -647,8 +645,8 @@ details.ci .a ul, .gen-card ul { margin: 4px 0; padding-left: 1.2em; }
     bindFilters('home');
     on('openLib', () => go({ name: 'library' })); on('openLib2', () => go({ name: 'library' }));
     on('openGoals', () => go({ name: 'goals' })); on('openGoals2', () => go({ name: 'goals' }));
-    on('openSubmit', () => go({ name: 'submit' })); on('openArchive', () => go({ name: 'archive' }));
-    on('openDev', () => go({ name: 'dev', tab: 'subs' }));
+    on('openArchive', () => go({ name: 'archive' }));
+    on('openDev', () => go({ name: 'dev', tab: 'users' }));
     on('asUser', () => { devMode = false; store.set('devMode', false); render(); });
     on('asDev', () => { devMode = true; store.set('devMode', true); render(); });
     on('logout', async () => { await flushProgress(); await sb.auth.signOut(); });
@@ -952,15 +950,14 @@ details.ci .a ul, .gen-card ul { margin: 4px 0; padding-left: 1.2em; }
 
   function renderDev() {
     if (!devMode) return go({ name: 'home' });
-    const tab = view.tab || 'subs';
+    const tab = view.tab || 'users';
     const pend = allSubs.filter(s => s.status === 'pending'), waiting = profiles.filter(p => !p.approved);
     let html = `${back()}<div><h2>Modo developer</h2><h1>Painel</h1></div>
       <div class="tabs" role="tablist">
-        <button role="tab" aria-selected="${tab === 'subs'}" data-tab="subs">Envios${pend.length ? ` (${pend.length})` : ''}</button>
         <button role="tab" aria-selected="${tab === 'users'}" data-tab="users">Contas${waiting.length ? ` (${waiting.length})` : ''}</button>
         <button role="tab" aria-selected="${tab === 'new'}" data-tab="new">Publicar cartões</button></div>`;
 
-    if (tab === 'subs') {
+    if (false) {   // envio de PDFs pelos utilizadores desativado (2026-10-30)
       if (!pend.length) html += `<div class="empty"><h3>Nada por tratar</h3><p class="muted">Os PDFs que os internos enviarem aparecem aqui.</p></div>`;
       for (const s of pend) html += `<div class="panel"><div class="group-head"><h3>${esc(s.title)}</h3><span class="pill pending">a aguardar</span></div>
         <p class="small muted">${esc(s.topic)} · Fonte: ${esc([s.source_title, s.source_detail].filter(Boolean).join(' · '))}${s.pages ? ` · páginas ${esc(s.pages)}` : ''}<br>
